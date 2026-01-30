@@ -5,13 +5,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const storyEl = document.getElementById("story");
   const contextEl = document.getElementById("context");
 
-  const attachmentsEl = document.getElementById("attachments");
-  const linkUrlEl = document.getElementById("linkUrl");
-  const addLinkBtn = document.getElementById("addLinkBtn");
-
+  // Step 3 (paste-only)
+  const attachmentRefEl = document.getElementById("attachmentRef");
+  const addAttachmentBtn = document.getElementById("addAttachmentBtn");
+  const clearAttachmentsBtn = document.getElementById("clearAttachmentsBtn");
   const attachmentListEl = document.getElementById("attachmentList");
   const attachMetaEl = document.getElementById("attachMeta");
-  const clearAttachmentsBtn = document.getElementById("clearAttachmentsBtn");
 
   const modeEl = document.getElementById("mode");
   const modeHintEl = document.getElementById("modeHint");
@@ -45,12 +44,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const s2 = document.getElementById("s2");
   const s3 = document.getElementById("s3");
 
+  // Attachments are reference-only strings.
+  // shape: { id, label, ref, kind: "url"|"path"|"text" }
   let attachments = [];
 
   // Defaults
   let detailLevel = "lean";     // 'outline' | 'lean' | 'balanced' | 'exhaustive'
   let formatStyle = "simple";   // 'simple' | 'gherkin'
-
   const THEME_KEY = "ac_promptsmith_theme";
 
   function setPressed(theme){
@@ -58,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
     lightBtn.setAttribute("aria-pressed", String(!isDark));
     darkBtn.setAttribute("aria-pressed", String(isDark));
   }
-
   function applyTheme(theme){
     document.documentElement.setAttribute("data-theme", theme);
     setPressed(theme);
@@ -73,11 +72,24 @@ document.addEventListener("DOMContentLoaded", () => {
     promptToast.style.color = isError ? "var(--danger)" : "var(--muted)";
   }
 
-  function humanFileSize(bytes){
-    const units = ["B","KB","MB","GB"];
-    let i=0, num=bytes;
-    while(num>=1024 && i<units.length-1){ num/=1024; i++; }
-    return `${num.toFixed(num >= 10 || i===0 ? 0 : 1)} ${units[i]}`;
+  function isProbablyUrl(s){
+    try { new URL(s); return true; } catch { return false; }
+  }
+
+  function detectKind(ref){
+    const r = (ref || "").trim();
+    if (!r) return "text";
+    if (isProbablyUrl(r)) return "url";
+    // very light heuristics for paths
+    const looksWindows = /^[a-zA-Z]:\\/.test(r) || r.includes("\\");
+    const looksUnix = r.startsWith("/") || r.startsWith("~/");
+    if (looksWindows || looksUnix) return "path";
+    return "text";
+  }
+
+  function makeId(ref){
+    const t = (ref || "").trim().toLowerCase();
+    return `ref__${t.slice(0, 160)}__${t.length}`;
   }
 
   function getFocusAreas(){
@@ -89,18 +101,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chkAccessibility.checked) areas.push("Accessibility");
     if (chkAnalytics.checked) areas.push("Analytics/Tracking");
     return areas;
-  }
-
-  function isProbablyUrl(s){
-    try { new URL(s); return true; } catch { return false; }
-  }
-
-  function makeFileId(f){
-    return `file__${f.name}__${f.size}__${f.lastModified || 0}`;
-  }
-
-  function makeLinkId(url){
-    return `link__${url}`;
   }
 
   function modeHint(){
@@ -138,26 +138,6 @@ document.addEventListener("DOMContentLoaded", () => {
       : "Gherkin: Given/When/Then style bullets (BDD).";
   }
 
-  function removeAttachment(id){
-    const idx = attachments.findIndex(a => a.id === id);
-    if (idx === -1) return;
-
-    const a = attachments[idx];
-    if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
-
-    attachments.splice(idx, 1);
-    renderAttachments();
-  }
-
-  function clearAllAttachments(){
-    for (const a of attachments){
-      if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
-    }
-    attachments = [];
-    attachmentsEl.value = "";
-    renderAttachments();
-  }
-
   function renderAttachments(){
     attachmentListEl.innerHTML = "";
 
@@ -169,13 +149,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     clearAttachmentsBtn.disabled = false;
 
-    const fileCount = attachments.filter(a => a.kind === "file").length;
-    const linkCount = attachments.filter(a => a.kind === "link").length;
-    const imgCount = attachments.filter(a => a.kind === "file" && a.isImage).length;
-    const linkedCount = attachments.filter(a => (a.url || "").trim().length > 0).length;
+    const urlCount = attachments.filter(a => a.kind === "url").length;
+    const pathCount = attachments.filter(a => a.kind === "path").length;
+    const textCount = attachments.filter(a => a.kind === "text").length;
 
     attachMetaEl.textContent =
-      `${attachments.length} attachment(s) • ${fileCount} file(s) • ${linkCount} link(s) • ${imgCount} image(s) • ${linkedCount}/${attachments.length} link(s) present`;
+      `${attachments.length} attachment(s) • ${urlCount} url(s) • ${pathCount} path(s) • ${textCount} text reference(s)`;
 
     for (const a of attachments){
       const row = document.createElement("div");
@@ -192,19 +171,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const name = document.createElement("div");
       name.className = "fileName";
-      name.textContent = a.label || a.name || "Attachment";
+      name.textContent = (a.label || "").trim() || "Attachment";
 
       const tag = document.createElement("span");
       tag.className = "tag";
-      tag.textContent = a.kind === "link" ? "Link" : "File";
+      tag.textContent = a.kind === "url" ? "URL" : (a.kind === "path" ? "Path" : "Ref");
 
       nameLine.appendChild(name);
       nameLine.appendChild(tag);
 
       const meta = document.createElement("div");
       meta.className = "fileMeta";
-      if (a.kind === "file") meta.textContent = `${a.type || "unknown"} • ${humanFileSize(a.size || 0)}`;
-      else meta.textContent = a.url ? a.url : "(no URL)";
+      meta.textContent = a.ref;
 
       left.appendChild(nameLine);
       left.appendChild(meta);
@@ -212,21 +190,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const right = document.createElement("div");
       right.className = "fileRight";
 
-      if (a.kind === "file" && a.isImage && a.objectUrl){
-        const thumb = document.createElement("div");
-        thumb.className = "thumb";
-        const img = document.createElement("img");
-        img.src = a.objectUrl;
-        img.alt = a.name || "image";
-        thumb.appendChild(img);
-        right.appendChild(thumb);
-      }
-
       const removeBtn = document.createElement("button");
       removeBtn.className = "dangerBtn";
       removeBtn.type = "button";
       removeBtn.textContent = "Remove";
-      removeBtn.addEventListener("click", () => removeAttachment(a.id));
+      removeBtn.addEventListener("click", () => {
+        attachments = attachments.filter(x => x.id !== a.id);
+        renderAttachments();
+        updateUI();
+      });
       right.appendChild(removeBtn);
 
       top.appendChild(left);
@@ -253,33 +225,53 @@ document.addEventListener("DOMContentLoaded", () => {
       labelBox.appendChild(labelLbl);
       labelBox.appendChild(labelInput);
 
-      const urlBox = document.createElement("div");
-      const urlLbl = document.createElement("div");
-      urlLbl.className = "label";
-      urlLbl.style.margin = "10px 0 6px";
-      urlLbl.textContent = a.kind === "link" ? "URL (required for link attachments)" : "OneDrive/Figma link (recommended)";
-      const urlInput = document.createElement("input");
-      urlInput.type = "url";
-      urlInput.placeholder = a.kind === "link"
-        ? "Paste link (OneDrive/Figma/etc.)"
-        : "Paste OneDrive share link (or Figma link if relevant)";
-      urlInput.value = a.url || "";
-      urlInput.addEventListener("input", (e) => {
+      const refBox = document.createElement("div");
+      const refLbl = document.createElement("div");
+      refLbl.className = "label";
+      refLbl.style.margin = "10px 0 6px";
+      refLbl.textContent = "Reference (path or URL)";
+      const refInput = document.createElement("input");
+      refInput.type = "text";
+      refInput.placeholder = "Paste a path or URL";
+      refInput.value = a.ref || "";
+      refInput.addEventListener("input", (e) => {
         const idx = attachments.findIndex(x => x.id === a.id);
-        if (idx !== -1) attachments[idx].url = e.target.value;
+        if (idx !== -1){
+          const newRef = e.target.value;
+          attachments[idx].ref = newRef;
+          attachments[idx].kind = detectKind(newRef);
+          attachments[idx].id = makeId(newRef);
+        }
         renderAttachments();
+        updateUI();
       });
-      urlBox.appendChild(urlLbl);
-      urlBox.appendChild(urlInput);
+      refBox.appendChild(refLbl);
+      refBox.appendChild(refInput);
 
       grid.appendChild(labelBox);
-      grid.appendChild(urlBox);
+      grid.appendChild(refBox);
 
       row.appendChild(top);
       row.appendChild(grid);
 
       attachmentListEl.appendChild(row);
     }
+  }
+
+  function clearAllAttachments(){
+    attachments = [];
+    attachmentRefEl.value = "";
+    renderAttachments();
+  }
+
+  function attachmentsBlock(){
+    if (attachments.length === 0) return "(none)";
+    return attachments.map(a => {
+      const label = (a.label || "Attachment").trim();
+      const ref = (a.ref || "").trim();
+      if (!ref) return `- ${label} — (no reference provided)`;
+      return `- ${label} — ${ref}`;
+    }).join("\n");
   }
 
   function detailDirectives_User(){
@@ -292,7 +284,6 @@ Detail level: OUTLINE
 - Treat this as a scaffold for a PM to refine later.
       `.trim();
     }
-
     if (detailLevel === "lean"){
       return `
 Detail level: LEAN (default)
@@ -301,7 +292,6 @@ Detail level: LEAN (default)
 - Avoid long edge-case lists; keep wording tight.
       `.trim();
     }
-
     if (detailLevel === "exhaustive"){
       return `
 Detail level: EXHAUSTIVE
@@ -311,7 +301,6 @@ Detail level: EXHAUSTIVE
 - Include explicit negative cases and error messages where implied.
       `.trim();
     }
-
     return `
 Detail level: BALANCED
 - Target 10–14 bullets total.
@@ -328,7 +317,6 @@ Detail level: OUTLINE
 - Focus only on responsibility boundaries (no validations or failures).
       `.trim();
     }
-
     if (detailLevel === "lean"){
       return `
 Detail level: LEAN (default)
@@ -336,7 +324,6 @@ Detail level: LEAN (default)
 - Focus on core deliverables + top validation/failure items only.
       `.trim();
     }
-
     if (detailLevel === "exhaustive"){
       return `
 Detail level: EXHAUSTIVE
@@ -344,7 +331,6 @@ Detail level: EXHAUSTIVE
 - Include failures, retries, idempotency, concurrency, schema constraints, migrations, monitoring, rate limits, caching, etc.
       `.trim();
     }
-
     return `
 Detail level: BALANCED
 - For each relevant layer, target 3–5 bullets.
@@ -373,16 +359,6 @@ Format: SIMPLE (default)
     const focus = getFocusAreas();
     const focusBlock = focus.length ? focus.map(f => `- ${f}`).join("\n") : "(none)";
 
-    const attBlock = (() => {
-      if (attachments.length === 0) return "(none)";
-      return attachments.map(a => {
-        const label = (a.label || a.name || "Attachment").trim();
-        const url = (a.url || "").trim();
-        if (url) return `- ${label} — ${url}`;
-        return `- ${label} — (no link provided)`;
-      }).join("\n");
-    })();
-
     return `
 You are a senior QA lead + Product Manager.
 
@@ -406,8 +382,8 @@ ${story}
 ADDITIONAL CONTEXT (optional):
 ${ctx || "(none)"}
 
-ATTACHMENTS (use links when available):
-${attBlock}
+ATTACHMENTS / REFERENCES (paths or URLs):
+${attachmentsBlock()}
 
 FOCUS AREAS (optional):
 ${focusBlock}
@@ -417,16 +393,6 @@ ${focusBlock}
   function buildPrompt_TechStackFocused(){
     const story = storyEl.value.trim();
     const ctx = contextEl.value.trim();
-
-    const attBlock = (() => {
-      if (attachments.length === 0) return "(none)";
-      return attachments.map(a => {
-        const label = (a.label || a.name || "Attachment").trim();
-        const url = (a.url || "").trim();
-        if (url) return `- ${label} — ${url}`;
-        return `- ${label} — (no link provided)`;
-      }).join("\n");
-    })();
 
     return `
 You are a senior technical Product Manager and QA lead.
@@ -459,8 +425,8 @@ ${story}
 ADDITIONAL CONTEXT (optional):
 ${ctx || "(none)"}
 
-ATTACHMENTS (use links when available):
-${attBlock}
+ATTACHMENTS / REFERENCES (paths or URLs):
+${attachmentsBlock()}
     `.trim();
   }
 
@@ -483,8 +449,7 @@ ${attBlock}
     const hasStory = storyEl.value.trim().length > 0;
 
     contextEl.disabled = !hasStory;
-    attachmentsEl.disabled = !hasStory;
-    linkUrlEl.disabled = !hasStory;
+    attachmentRefEl.disabled = !hasStory;
 
     card2.setAttribute("aria-disabled", String(!hasStory));
     card3.setAttribute("aria-disabled", String(!hasStory));
@@ -492,8 +457,8 @@ ${attBlock}
 
     copyPromptBtn.disabled = !hasStory;
 
-    const urlOk = hasStory && linkUrlEl.value.trim().length > 0 && isProbablyUrl(linkUrlEl.value.trim());
-    addLinkBtn.disabled = !urlOk;
+    const refOk = hasStory && attachmentRefEl.value.trim().length > 0;
+    addAttachmentBtn.disabled = !refOk;
 
     if (!hasStory){
       s1.className = "pill bad"; s1.textContent = "Step 1: User story required";
@@ -509,8 +474,55 @@ ${attBlock}
   // Events
   storyEl.addEventListener("input", () => { toast(""); updateUI(); });
   contextEl.addEventListener("input", updateUI);
-  linkUrlEl.addEventListener("input", updateUI);
-  modeEl.addEventListener("change", () => { modeHint(); });
+
+  attachmentRefEl.addEventListener("input", updateUI);
+  attachmentRefEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter"){
+      e.preventDefault();
+      if (!addAttachmentBtn.disabled) addAttachmentBtn.click();
+    }
+  });
+
+  addAttachmentBtn.addEventListener("click", () => {
+    const ref = attachmentRefEl.value.trim();
+    if (!ref) return;
+
+    const id = makeId(ref);
+    if (attachments.some(a => a.id === id)){
+      toast("That attachment reference is already added.", true);
+      return;
+    }
+
+    const kind = detectKind(ref);
+    let label = "Attachment";
+    if (kind === "url"){
+      try {
+        const u = new URL(ref);
+        const host = u.hostname.replace(/^www\./, "");
+        if (host.includes("figma.com")) label = "Figma";
+        else if (host.includes("1drv.ms") || host.includes("sharepoint") || host.includes("onedrive")) label = "SharePoint/OneDrive";
+        else label = host;
+      } catch {}
+    } else if (kind === "path") {
+      label = "Local file path";
+    } else {
+      label = "Reference";
+    }
+
+    attachments.push({ id, label, ref, kind });
+    attachmentRefEl.value = "";
+    toast("");
+    renderAttachments();
+    updateUI();
+  });
+
+  clearAttachmentsBtn.addEventListener("click", () => {
+    clearAllAttachments();
+    toast("");
+    updateUI();
+  });
+
+  modeEl.addEventListener("change", () => modeHint());
 
   [chkValidation, chkPermissions, chkAudit, chkPerformance, chkAccessibility, chkAnalytics].forEach(el=>{
     el.addEventListener("change", updateUI);
@@ -523,82 +535,6 @@ ${attBlock}
 
   fSimple.addEventListener("click", () => setFormat("simple"));
   fGherkin.addEventListener("click", () => setFormat("gherkin"));
-
-  // Upload files incrementally
-  attachmentsEl.addEventListener("change", () => {
-    const selected = Array.from(attachmentsEl.files || []);
-    if (selected.length === 0) return;
-
-    const existingIds = new Set(attachments.map(a => a.id));
-
-    for (const file of selected){
-      const id = makeFileId(file);
-      if (existingIds.has(id)) continue;
-
-      const isImage = (file.type || "").startsWith("image/");
-      const objectUrl = isImage ? URL.createObjectURL(file) : null;
-
-      attachments.push({
-        id,
-        kind: "file",
-        label: file.name,
-        url: "",
-        name: file.name,
-        type: file.type || "unknown",
-        size: file.size,
-        isImage,
-        objectUrl
-      });
-      existingIds.add(id);
-    }
-
-    attachmentsEl.value = "";
-    renderAttachments();
-    updateUI();
-  });
-
-  addLinkBtn.addEventListener("click", () => {
-    const url = linkUrlEl.value.trim();
-    if (!isProbablyUrl(url)) return;
-
-    const id = makeLinkId(url);
-    if (attachments.some(a => a.id === id)) {
-      toast("That link is already added.", true);
-      return;
-    }
-
-    let label = "Link";
-    try {
-      const u = new URL(url);
-      const host = u.hostname.replace(/^www\./, "");
-      if (host.includes("figma.com")) label = "Figma";
-      else if (host.includes("1drv.ms") || host.includes("sharepoint") || host.includes("onedrive")) label = "OneDrive";
-      else label = host;
-    } catch {}
-
-    attachments.push({
-      id,
-      kind: "link",
-      label,
-      url,
-      name: "",
-      type: "",
-      size: 0,
-      isImage: false,
-      objectUrl: null
-    });
-
-    linkUrlEl.value = "";
-    toast("");
-    renderAttachments();
-    updateUI();
-  });
-
-  clearAttachmentsBtn.addEventListener("click", () => {
-    clearAllAttachments();
-    toast("");
-    updateUI();
-  });
 
   copyPromptBtn.addEventListener("click", async () => {
     const story = storyEl.value.trim();
@@ -622,7 +558,7 @@ ${attBlock}
   clearBtn.addEventListener("click", () => {
     storyEl.value = "";
     contextEl.value = "";
-    linkUrlEl.value = "";
+    attachmentRefEl.value = "";
     clearAllAttachments();
 
     chkValidation.checked = true;
@@ -635,8 +571,8 @@ ${attBlock}
     modeEl.value = "user";
     modeHint();
 
-    setDetail("lean");   // default
-    setFormat("simple"); // default
+    setDetail("lean");
+    setFormat("simple");
 
     toast("");
     updateUI();
@@ -644,13 +580,12 @@ ${attBlock}
 
   // Init
   contextEl.disabled = true;
-  attachmentsEl.disabled = true;
-  linkUrlEl.disabled = true;
+  attachmentRefEl.disabled = true;
 
   attachMetaEl.textContent = "No attachments added (optional).";
   modeHint();
-  setDetail("lean");     // default
-  setFormat("simple");   // default
+  setDetail("lean");
+  setFormat("simple");
   renderAttachments();
   updateUI();
 });
