@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AC PromptSmith</title>
   <link rel="stylesheet" href="./styles.css" />
-  <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
 </head>
 
 <body>
@@ -13,7 +13,7 @@
     <header class="header">
       <div>
         <h1>AC PromptSmith</h1>
-        <p class="subtext">Craft high-quality Copilot prompts to generate Acceptance Criteria</p>
+        <p class="subtext">Craft high-quality AI prompts to generate Acceptance Criteria for User Stories.</p>
         <div class="statusline" aria-live="polite">
           <span id="s1" class="pill bad">Step 1: User story required</span>
           <span id="s2" class="pill warn">Step 2–3: Optional</span>
@@ -65,31 +65,20 @@ so that [benefit]"></textarea>
       <div class="card-header">
         <h2 id="attachments-title">3) Attachments (optional)</h2>
         <p class="hint">
-          Add attachments by uploading files (optional) or pasting a link (OneDrive, Figma, etc).
-          Copilot prompt will include links.
+          Add references only (no uploads): local file paths, Figma links, SharePoint/OneDrive links, or any URL.
+          These are copied into the AI Chatbot prompt as references.
         </p>
       </div>
 
-      <div class="grid2">
-        <div>
-          <label class="label" for="attachments">Add files (optional)</label>
-          <input id="attachments" type="file" multiple />
-          <p class="tinyHint">Adding files won’t remove existing ones. Images will show thumbnails.</p>
-        </div>
-
-        <div>
-          <label class="label" for="linkUrl">Add attachment link (OneDrive, Figma, etc.)</label>
-          <input id="linkUrl" type="url" placeholder="Paste link here (https://...)" />
-          <div class="actions" style="margin-top:10px">
-            <button id="addLinkBtn" class="secondary" type="button" disabled>Add link</button>
-          </div>
-          <p class="tinyHint">Tip: Paste a Figma file link or OneDrive share link directly — no upload needed.</p>
-        </div>
-      </div>
+      <label class="label" for="attachmentRef">Attachment reference (path or URL)</label>
+      <input id="attachmentRef" type="text" placeholder="Paste a local path or URL (e.g., C:\...\mock.png or https://figma.com/file/...)" />
 
       <div class="actions" style="margin-top:10px">
+        <button id="addAttachmentBtn" class="secondary" type="button" disabled>Add attachment</button>
         <button id="clearAttachmentsBtn" class="dangerBtn" type="button" disabled>Remove all attachments</button>
       </div>
+
+      <p class="tinyHint">Tip: Add one reference at a time. You can label each attachment in the list below.</p>
 
       <div id="attachmentList" class="fileList" aria-live="polite"></div>
       <p id="attachMeta" class="fileMeta"></p>
@@ -97,8 +86,8 @@ so that [benefit]"></textarea>
 
     <section class="card" aria-labelledby="prompt-title" id="card4" aria-disabled="true">
       <div class="card-header">
-        <h2 id="prompt-title">4) Generate using Copilot</h2>
-        <p class="hint">Pick mode + detail + format, then copy into Copilot Chat.</p>
+        <h2 id="prompt-title">4) Generate using AI Chatbot</h2>
+        <p class="hint">Pick mode + detail + format, then copy into AI Chatbot Chat.</p>
       </div>
 
       <div class="grid2">
@@ -131,7 +120,7 @@ so that [benefit]"></textarea>
       </div>
 
       <div class="actions" style="margin-top:10px">
-        <button id="copyPromptBtn" class="primary" type="button" disabled>Copy Copilot Prompt</button>
+        <button id="copyPromptBtn" class="primary" type="button" disabled>Copy AI Chatbot Prompt</button>
         <button id="clearBtn" class="ghost" type="button">Clear all</button>
       </div>
 
@@ -140,7 +129,7 @@ so that [benefit]"></textarea>
 
     <footer class="footer">
       <small>
-        Local-only. No keys. Copilot prompt builder. Version 1.0. Created by
+        Local-only. No keys. AI prompt builder. Version 1.1 - Created by
         <a href="https://github.com/SalimKashou" target="_blank" rel="noopener noreferrer">Salim Kashou</a>
         using ChatGPT. Not for profit.
       </small>
@@ -148,17 +137,9 @@ so that [benefit]"></textarea>
   </main>
 
   <script src="./app.js"></script>
-  <script>
-      // Append to the <body>; can use a CSS selector to append somewhere else.
-      window.goatcounter.visit_count({append: 'body'})
-  </script>
-  <script data-goatcounter="https://salimkashou.goatcounter.com/count"
-          async src="//gc.zgo.at/count.js"></script>
-  
 </body>
-  <script data-goatcounter="https://salimkashou.goatcounter.com/count"
+
+ <script data-goatcounter="https://salimkashou.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
+
 </html>
-
-
-
