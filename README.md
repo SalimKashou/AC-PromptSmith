@@ -1,10 +1,12 @@
 # AC PromptSmith
 
+AC PromptSmith is a lightweight, local-only web app that helps Product Managers and teams craft **high-quality Copilot prompts** to generate **Acceptance Criteria**.
+
 **Version 1.1 Updates - January 30th, 2026**
 - Improved linking of local files
 - Updated language across the page
 
-AC PromptSmith is a lightweight, local-only web app that helps Product Managers and teams craft **high-quality Copilot prompts** to generate **Acceptance Criteria**.
+---
 
 You provide:
 - a User Story (required),
