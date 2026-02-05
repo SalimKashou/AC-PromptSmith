@@ -55,6 +55,7 @@ body{
     radial-gradient(1000px 700px at 30% 10%, rgba(37,99,235,.12), transparent 60%),
     radial-gradient(900px 600px at 80% 30%, rgba(225,29,72,.08), transparent 60%),
     var(--bg);
+  background-attachment: fixed; 
   color:var(--text);
 }
 
@@ -63,6 +64,7 @@ html[data-theme="dark"] body{
     radial-gradient(1000px 700px at 30% 10%, rgba(79,140,255,.18), transparent 60%),
     radial-gradient(900px 600px at 80% 30%, rgba(255,90,95,.10), transparent 60%),
     var(--bg);
+  background-attachment: fixed;
 }
 
 .container{max-width:980px;margin:0 auto;padding:0 16px 40px}
@@ -265,3 +267,4 @@ html[data-theme="dark"] .segBtn[aria-pressed="true"]{
   background: rgba(79,140,255,0.18);
   border-color: rgba(79,140,255,0.28);
 }
+
