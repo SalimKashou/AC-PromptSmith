@@ -1,5 +1,6 @@
-# AC PromptSmith - https://salimkashou.github.io/AC-PromptSmith/ 
+# AC PromptSmith 
 
+Link To Site: https://salimkashou.github.io/AC-PromptSmith/
 AC PromptSmith is a lightweight, local-only web app that helps Product Managers and teams craft **high-quality Copilot prompts** to generate **Acceptance Criteria**.
 
 ---
