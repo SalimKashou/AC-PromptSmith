@@ -209,7 +209,7 @@ html[data-theme="dark"] .secondary{background: rgba(255,255,255,0.08);color: var
 
 button:disabled{opacity:.45;cursor:not-allowed}
 
-.toast{margin:10px 0 0;min-height:18px;color:#16a34a;font-size:13px}
+.toast{margin:10px 0 0;min-height:18px;color:var(--muted);font-size:13px}
 .footer{margin-top:18px;color:var(--muted);text-align:center}
 .footer a{color: inherit; text-decoration: underline;}
 .footer a:hover{opacity:0.85}
@@ -267,5 +267,6 @@ html[data-theme="dark"] .segBtn[aria-pressed="true"]{
   background: rgba(79,140,255,0.18);
   border-color: rgba(79,140,255,0.28);
 }
+
 
 
